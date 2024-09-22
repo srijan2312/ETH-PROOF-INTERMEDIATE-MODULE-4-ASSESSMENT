@@ -1,53 +1,62 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.18;
 
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.4.0/contracts/token/ERC20/ERC20.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.4.0/contracts/access/Ownable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.4.0/contracts/security/Pausable.sol";
 
-contract DegenToken is ERC20, Ownable, Pausable {
-
-    // Mapping of items and their token cost
+contract DEGENTOKEN is ERC20, Ownable {
+    string[] public redeemableItems;
     mapping(uint256 => uint256) public itemCosts;
+    mapping(address => mapping(uint256 => bool)) public itemRedeemed;
 
-    // Constructor to initialize the token with name and symbol
+
     constructor() ERC20("Degen", "DGN") {
-        itemCosts[1] = 150; // item 1 costs 150 tokens (150 DGN)
-        itemCosts[2] = 200; // item 2 costs 200 tokens (200 DGN)
-        itemCosts[3] = 250; // item 3 costs 250 tokens (250 DGN)
+        
+        // Initialize redeemable items
+        redeemableItems.push("Item 1");
+        redeemableItems.push("Item 2");
+        redeemableItems.push("Item 3");
+        redeemableItems.push("Item 4");
+
+        // Set costs for each item
+        itemCosts[0] = 100; // Example cost for Item 1
+        itemCosts[1] = 200; // Example cost for Item 2
+        itemCosts[2] = 300; // Example cost for Item 3
+        itemCosts[3] = 400; // Example cost for Item 4
     }
 
-    // Function to create new tokens and distribute them to players as rewards, can only be called by the owner
-    function mintToken(address to, uint256 amount) external onlyOwner whenNotPaused {
+    function mintToken(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
 
-    // Function to burn tokens, that they own, that are no longer needed, can be called by anyone who owns tokens
-    function burnToken(uint256 amount) public {
+      function burnToken(uint256 amount) public {
         _burn(msg.sender, amount);
     }
 
-    // Function to redeem their tokens for items in the in-game store
-    function redeemItem(uint256 itemId) external whenNotPaused {
-        uint256 itemCost = itemCosts[itemId];
-        require(itemCost > 0, "Item does not exist or cost not set");
-        require(balanceOf(msg.sender) >= itemCost, "Insufficient tokens");
 
-        _burn(msg.sender, itemCost);
-    }
-
-    // Function to transfer their tokens to other's address
-    function transferTokens(address to, uint256 amount) external whenNotPaused {
+    function transferTokens(address to, uint256 amount) external onlyOwner {
         _transfer(msg.sender, to, amount);
     }
 
-    // Function to pause all token transfers and minting
-    function pauseContract() external onlyOwner {
-        _pause();
+    function redeem(uint256 itemId) public {
+        require(itemId < redeemableItems.length, "Item does not exist");
+        uint256 cost = itemCosts[itemId];
+        require(balanceOf(msg.sender) >= cost, "Insufficient balance");
+        require(!itemRedeemed[msg.sender][itemId], "Item already redeemed");
+
+        // Burn tokens as payment for the redeemed item
+        _burn(msg.sender, cost);
+        
+        // Mark item as redeemed for the user
+        itemRedeemed[msg.sender][itemId] = true;
     }
 
-    // Function to unpause all token transfers and minting
-    function unpauseContract() external onlyOwner {
-        _unpause();
+    function getRedeemedItems(address user) public view returns (bool[] memory) {
+        bool[] memory redeemed = new bool[](redeemableItems.length);
+        for (uint256 i = 0; i < redeemableItems.length; i++) {
+            redeemed[i] = itemRedeemed[user][i];
+        }
+        return redeemed;
     }
+
 }
